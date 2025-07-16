@@ -46,7 +46,7 @@ class Config:
 
     def __init__(self):
         # robot parameter
-        self.max_speed = 2.0  # 1 [m/s] 
+        self.max_speed = 1.0  # 1 [m/s] 
         self.min_speed = -0.3  # -0.5 [m/s]
         self.max_yaw_rate = 40.0 * math.pi / 180.0  # [rad/s]
         self.max_accel = 0.3  # 0.2 [m/ss]
@@ -63,7 +63,7 @@ class Config:
 
         # if robot_type == RobotType.circle
         # Also used to check if goal is reached in both types
-        self.robot_radius = 0.3  # 1 [m] for collision check
+        self.robot_radius = 1  # 1 [m] for collision check
 
         # if robot_type == RobotType.rectangle
         self.robot_width = 0.5  # [m] for collision check
@@ -284,14 +284,14 @@ def main(gx=20, gy=15, robot_type=RobotType.circle, alfa = 0, k = 0.5, H_umbral 
         sheet.append([alfa, u[0], u[1], u_ac[0], u_ac[1]])
         #v = u_ac[0]
         #w = u_ac[1]
-        u = [v,w]
+        u2 = [v,w]
         H = -(u_ac[0]*math.log(u_ac[0]) + u_ac[1]*math.log(u_ac[1]))  #Entropía, incertifdumbre de la red
         alfa = 1 / (1+ math.exp(-k * (H_umbral - H)))  #k es la velocidad de la transición 
         
 
-        x = motion(x, u, config.dt)  # simulate robot
+        x = motion(x, u2, config.dt)  # simulate robot velocidades híbridas
         trajectory = np.vstack((trajectory, x))  # store state history
-        x2 = motion(x, u, config.dt)  # simulate robot
+        x2 = motion(x, u, config.dt)  # simulate robot velocidades DWA
 
         if show_animation:
             plt.cla()
@@ -306,7 +306,7 @@ def main(gx=20, gy=15, robot_type=RobotType.circle, alfa = 0, k = 0.5, H_umbral 
             plot_robot(x[0], x[1], x[2], config)
             plot_arrow(x[0], x[1], x[2])
             
-            plt.plot(predicted_trajectory[:, 0], predicted_trajectory[:, 1], "-g")
+            plt.plot(predicted_trajectory[:, 0], predicted_trajectory[:, 1])
             plt.plot(x2[0], x2[1], "xr")
             plot_robot(x2[0], x2[1], x2[2], config)
             plot_arrow(x2[0], x2[1], x2[2])
