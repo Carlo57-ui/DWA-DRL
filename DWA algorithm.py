@@ -1,7 +1,7 @@
 """
 
 Dynamic Window Approach with Deep Reinforcement Learning
-
+by Carlos VJ
 
 """
 
@@ -47,7 +47,7 @@ class Config:
     def __init__(self):
         # robot parameter
         self.max_speed = 2.0  # 1 [m/s] 
-        self.min_speed = -0.5  # [m/s]
+        self.min_speed = -0.3  # -0.5 [m/s]
         self.max_yaw_rate = 40.0 * math.pi / 180.0  # [rad/s]
         self.max_accel = 0.3  # 0.2 [m/ss]
         self.max_delta_yaw_rate = 40.0 * math.pi / 180.0  # [rad/ss]
@@ -63,7 +63,7 @@ class Config:
 
         # if robot_type == RobotType.circle
         # Also used to check if goal is reached in both types
-        self.robot_radius = 1.0  # [m] for collision check
+        self.robot_radius = 0.3  # 1 [m] for collision check
 
         # if robot_type == RobotType.rectangle
         self.robot_width = 0.5  # [m] for collision check
@@ -279,8 +279,8 @@ def main(gx=20, gy=15, robot_type=RobotType.circle, alfa = 0, k = 0.5, H_umbral 
         u, predicted_trajectory = dwa_control(x, config, goal, ob)
         
         # Función de transición (entropía alfa)
-        v = alfa * (u_ac[0]) + (1 - alfa) * (u[0])
-        w = alfa * (u_ac[1]) + (1 - alfa) * (u[1])
+        v = alfa * (u_ac[0]) + (1 - alfa) * (u[0])    #velocidad lineal híbrida
+        w = alfa * (u_ac[1]) + (1 - alfa) * (u[1])    #velocidad angular híbrida
         sheet.append([alfa, u[0], u[1], u_ac[0], u_ac[1]])
         #v = u_ac[0]
         #w = u_ac[1]
@@ -291,7 +291,7 @@ def main(gx=20, gy=15, robot_type=RobotType.circle, alfa = 0, k = 0.5, H_umbral 
 
         x = motion(x, u, config.dt)  # simulate robot
         trajectory = np.vstack((trajectory, x))  # store state history
-        
+        x2 = motion(x, u, config.dt)  # simulate robot
 
         if show_animation:
             plt.cla()
@@ -305,6 +305,11 @@ def main(gx=20, gy=15, robot_type=RobotType.circle, alfa = 0, k = 0.5, H_umbral 
             plt.plot(ob[:, 0], ob[:, 1], "ok")
             plot_robot(x[0], x[1], x[2], config)
             plot_arrow(x[0], x[1], x[2])
+            
+            plt.plot(predicted_trajectory[:, 0], predicted_trajectory[:, 1], "-g")
+            plt.plot(x2[0], x2[1], "xr")
+            plot_robot(x2[0], x2[1], x2[2], config)
+            plot_arrow(x2[0], x2[1], x2[2])
                        
             plt.axis("equal")
             plt.grid(True)
@@ -337,3 +342,21 @@ def main(gx=20, gy=15, robot_type=RobotType.circle, alfa = 0, k = 0.5, H_umbral 
 if __name__ == '__main__':
     main(robot_type=RobotType.rectangle)
     #main(robot_type=RobotType.circle)
+    
+
+
+
+
+
+
+
+
+                   
+
+
+
+   
+    
+ 
+
+
