@@ -49,7 +49,7 @@ class Config:
     def __init__(self):
         # robot parameter
         self.max_speed = 1.0  # 1 [m/s] 
-        self.min_speed = -0.3  # -0.5 [m/s]
+        self.min_speed = -0.8  # -0.5 [m/s]
         self.max_yaw_rate = 40.0 * math.pi / 180.0  # [rad/s]
         self.max_accel = 0.3  # 0.2 [m/ss]
         self.max_delta_yaw_rate = 40.0 * math.pi / 180.0  # [rad/ss]
@@ -65,13 +65,13 @@ class Config:
 
         # if robot_type == RobotType.circle
         # Also used to check if goal is reached in both types
-        self.robot_radius = 1  # 1 [m] for collision check
+        self.robot_radius = 2.0  # 1 [m] for collision check
 
         # if robot_type == RobotType.rectangle
-        self.robot_width = 0.5  # [m] for collision check
-        self.robot_length = 1.2  # [m] for collision check
+        self.robot_width = 1.0  # 0.5[m] for collision check
+        self.robot_length = 1.5  # 1.2 [m] for collision check
         # obstacles [x(m) y(m), ....]
-        self.ob = np.random.uniform(-1, 20, size=(15, 2)) #coordenadas de los obstáculos
+        self.ob = np.random.uniform(-1, 15, size=(15, 2)) #coordenadas de los obstáculos
 
     @property
     def robot_type(self):
@@ -267,10 +267,10 @@ def update_obstacles(ob, step):
 
     # Movimiento tipo onda senoidal en y
     for i in range(len(ob_updated)):
-        ob_updated[i][1] += 0.05 * np.sin(0.1 * step + i)
+        ob_updated[i][1] += 0.1 * np.sin(0.1 * step + i)
 
         # Alternativamente, puedes moverlos también en x:
-        ob_updated[i][0] += 0.03 * np.cos(0.05 * step + i)
+        ob_updated[i][0] += 0.1 * np.cos(0.05 * step + i)
 
     return ob_updated
 
@@ -387,14 +387,20 @@ def main(gx=20, gy=15, robot_type=RobotType.rectangle, alfa = 0, k = 0.5, H_umbr
 
         robot_dot, = ax.plot([], [], 'bo', label="Robot")
         trajectory_line, = ax.plot([], [], 'b--', label="Trayectoria")
-        ob_dots, = ax.plot([], [], 'ok') 
+        ob_dots, = ax.plot([], [], 'ok')
+        goal_dot, = ax.plot([], [], 'g*', markersize=12, label="Meta")  # Meta como estrella verde
         
+        ax.set_xlim(-2, 25)  # Ajusta según tu entorno
+        ax.set_ylim(-2, 25)
+        ax.set_title("Trayectoria del robot con obstáculos en movimiento")
+        ax.legend()
 
         def init():
             robot_dot.set_data([], [])
             trajectory_line.set_data([], [])
             ob_dots.set_data([], [])
-            return robot_dot, trajectory_line, ob_dots
+            goal_dot.set_data(goal[0], goal[1])  # Fijar meta
+            return robot_dot, trajectory_line, ob_dots, goal_dot
 
         def animate(i):
             robot_dot.set_data(trajectory[i, 0], trajectory[i, 1])
@@ -406,7 +412,7 @@ def main(gx=20, gy=15, robot_type=RobotType.rectangle, alfa = 0, k = 0.5, H_umbr
             oy = ob[:, 1]
             ob_dots.set_data(ox, oy)
 
-            return robot_dot, trajectory_line, ob_dots
+            return robot_dot, trajectory_line, ob_dots, goal_dot
 
 
         ani = animation.FuncAnimation(
