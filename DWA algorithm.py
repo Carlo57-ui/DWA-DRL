@@ -228,29 +228,6 @@ def plot_arrow(x, y, yaw, length=0.5, width=0.1):  # pragma: no cover
               head_length=width, head_width=width, fc='black', ec='black')
     plt.plot(x, y)
 
-
-# def plot_robot(x, y, yaw, config):  # pragma: no cover
-#     if config.robot_type == RobotType.rectangle:
-#         outline = np.array([[-config.robot_length / 2, config.robot_length / 2,
-#                              (config.robot_length / 2), -config.robot_length / 2,
-#                              -config.robot_length / 2],
-#                             [config.robot_width / 2, config.robot_width / 2,
-#                              - config.robot_width / 2, -config.robot_width / 2,
-#                              config.robot_width / 2]])
-#         Rot1 = np.array([[math.cos(yaw), math.sin(yaw)],
-#                          [-math.sin(yaw), math.cos(yaw)]])
-#         outline = (outline.T.dot(Rot1)).T
-#         outline[0, :] += x
-#         outline[1, :] += y
-#         plt.plot(np.array(outline[0, :]).flatten(),
-#                  np.array(outline[1, :]).flatten(), "-k")
-#     elif config.robot_type == RobotType.circle:
-#         circle = plt.Circle((x, y), config.robot_radius, color="b")
-#         plt.gcf().gca().add_artist(circle)
-#         out_x, out_y = (np.array([x, y]) +
-#                         np.array([np.cos(yaw), np.sin(yaw)]) * config.robot_radius)
-#         plt.plot([x, out_x], [y, out_y], "-k")
-
 def plot_robot(x, y, yaw, config):  # pragma: no cover
     if config.robot_type == RobotType.rectangle:
         outline = np.array([[-config.robot_length / 2, config.robot_length / 2,
@@ -281,6 +258,23 @@ def plot_robot(x, y, yaw, config):  # pragma: no cover
     plt.axis("equal")
     plt.grid(True)
 
+def update_obstacles(ob, step):
+    """
+    Mueve los obstáculos en patrones simples.
+    Por ejemplo: hacia la derecha y de regreso.
+    """
+    ob_updated = ob.copy()
+
+    # Movimiento tipo onda senoidal en y
+    for i in range(len(ob_updated)):
+        ob_updated[i][1] += 0.05 * np.sin(0.1 * step + i)
+
+        # Alternativamente, puedes moverlos también en x:
+        ob_updated[i][0] += 0.03 * np.cos(0.05 * step + i)
+
+    return ob_updated
+
+
 def main(gx=20, gy=15, robot_type=RobotType.rectangle, alfa = 0, k = 0.5, H_umbral = 0.3):
     print(__file__ + " start!!")
     # initial state [x(m), y(m), teta(rad), v(m/s), omega(rad/s)]
@@ -294,7 +288,7 @@ def main(gx=20, gy=15, robot_type=RobotType.rectangle, alfa = 0, k = 0.5, H_umbr
 
     config.robot_type = robot_type
     trajectory = np.array(x)
-    ob = config.ob
+    ob = config.ob.copy()
     
     workbook = Workbook()
     sheet = workbook.active
@@ -306,6 +300,13 @@ def main(gx=20, gy=15, robot_type=RobotType.rectangle, alfa = 0, k = 0.5, H_umbr
         u_ac = red.actor()
         u_ac = u_ac[0].tolist()
         red.critic()
+        
+        ob = update_obstacles(ob, step)
+        if step == 0:
+            ob_traj = [ob.copy()]
+        else:
+            ob_traj.append(ob.copy())
+
         
         u, predicted_trajectory = dwa_control(x, config, goal, ob)
         
@@ -364,28 +365,63 @@ def main(gx=20, gy=15, robot_type=RobotType.rectangle, alfa = 0, k = 0.5, H_umbr
     workbook.save("datos_robot.xlsx") # Guardar el archivo Excel
     print("Datos guardados en datos_robot.xlsx")
     print("Done")
+    
+    ob_traj = np.array(ob_traj)
+    min_len = min(len(ob_traj), len(trajectory))
+    trajectory = trajectory[:min_len]
+    ob_traj = ob_traj[:min_len]
+    
     if show_animation:
-        plt.plot(trajectory[:, 0], trajectory[:, 1], "-r")
-        plt.pause(0.0001)
+        # Animación estática final
+        plt.close("all")  # Cierra cualquier figura anterior
+
+        # Extraer solo las coordenadas x, y para la animación
+        xy_traj = trajectory[:, :2]  # Solo las primeras dos columnas
+
+        fig, ax = plt.subplots()
+        ax.set_xlim(np.min(xy_traj[:, 0]) - 1, np.max(xy_traj[:, 0]) + 1)
+        ax.set_ylim(np.min(xy_traj[:, 1]) - 1, np.max(xy_traj[:, 1]) + 1)
+        ax.set_aspect('equal')
+        ax.set_title("Trayectoria del robot")
+        ax.grid(True)
+
+        robot_dot, = ax.plot([], [], 'bo', label="Robot")
+        trajectory_line, = ax.plot([], [], 'b--', label="Trayectoria")
+        ob_dots, = ax.plot([], [], 'ok') 
+        
+
+        def init():
+            robot_dot.set_data([], [])
+            trajectory_line.set_data([], [])
+            ob_dots.set_data([], [])
+            return robot_dot, trajectory_line, ob_dots
+
+        def animate(i):
+            robot_dot.set_data(trajectory[i, 0], trajectory[i, 1])
+            trajectory_line.set_data(trajectory[:i+1, 0], trajectory[:i+1, 1])
+
+        # Obstáculos para este frame
+            ob = ob_traj[i]
+            ox = ob[:, 0]
+            oy = ob[:, 1]
+            ob_dots.set_data(ox, oy)
+
+            return robot_dot, trajectory_line, ob_dots
+
+
+        ani = animation.FuncAnimation(
+            fig, animate,
+            frames=len(trajectory),
+            init_func=init,
+            blit=True,
+            interval=100
+            )
+
+        ani.save("robot_path.gif", writer="imagemagick", fps=10)  # Usar 'pillow' si imagemagick falla
+        print("GIF guardado como robot_path.gif")
+
         plt.show()
     
-    fig, ax = plt.subplots()
-    robot_dot, = ax.plot([], [], 'bo')
-    trajectory_line, = ax.plot([], [], 'b--')
-    
-    def init():
-        robot_dot.set_data([], [])
-        trajectory_line.set_data([], [])
-        return robot_dot, trajectory_line
-    
-    def animate(i):
-        robot_dot.set_data(trajectory[i,0], trajectory[i,1])
-        trajectory_line.set_data(trajectory[:i+1,0], trajectory[:i+1,1])
-        return robot_dot, trajectory_line
-    
-    ani = animation.FuncAnimation(fig, animate, frames=len(trajectory), init_func=init, blit=True, interval=100)
-    plt.show()
-    ani.save("robot_path.gif", writer="imagemagick")
 
 if __name__ == '__main__':
     main(robot_type=RobotType.rectangle)
