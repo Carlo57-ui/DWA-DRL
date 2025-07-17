@@ -44,7 +44,7 @@ opt_critico2 = optim.Adam(critic2.parameters(), lr=learning_rate)
 
 # Load the model if it exists
 try:
-  actor.load_state_dict(torch.load('weights1.pth', weights_only=True))
+  actor.load_state_dict(torch.load('weights.pth', weights_only=True))
   print("Model loaded successfully.")
 except FileNotFoundError:   
   print("Model not found.")
@@ -105,7 +105,7 @@ class Actor_Critic:
         for param, param_pred in zip(actor.parameters(), actor.parameters()):
              param.data.copy_(tau * param_pred.data + (1 - tau) * param.data)
             
-        torch.save(actor.state_dict(), 'weights1.pth')
+        torch.save(actor.state_dict(), 'weights.pth')
          
     def reward(self, dist_objf, dist_obji):
         # Si la distancia actual con el objetivo es menor que 1, la recompensa es 10

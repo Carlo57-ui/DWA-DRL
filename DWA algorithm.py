@@ -15,6 +15,8 @@ from AC import Actor_Critic
 import openpyxl
 from openpyxl import Workbook
 
+from matplotlib import animation
+
 
 show_animation = True
 
@@ -223,14 +225,36 @@ def calc_to_goal_cost(trajectory, goal):
 
 def plot_arrow(x, y, yaw, length=0.5, width=0.1):  # pragma: no cover
     plt.arrow(x, y, length * math.cos(yaw), length * math.sin(yaw),
-              head_length=width, head_width=width)
+              head_length=width, head_width=width, fc='black', ec='black')
     plt.plot(x, y)
 
+
+# def plot_robot(x, y, yaw, config):  # pragma: no cover
+#     if config.robot_type == RobotType.rectangle:
+#         outline = np.array([[-config.robot_length / 2, config.robot_length / 2,
+#                              (config.robot_length / 2), -config.robot_length / 2,
+#                              -config.robot_length / 2],
+#                             [config.robot_width / 2, config.robot_width / 2,
+#                              - config.robot_width / 2, -config.robot_width / 2,
+#                              config.robot_width / 2]])
+#         Rot1 = np.array([[math.cos(yaw), math.sin(yaw)],
+#                          [-math.sin(yaw), math.cos(yaw)]])
+#         outline = (outline.T.dot(Rot1)).T
+#         outline[0, :] += x
+#         outline[1, :] += y
+#         plt.plot(np.array(outline[0, :]).flatten(),
+#                  np.array(outline[1, :]).flatten(), "-k")
+#     elif config.robot_type == RobotType.circle:
+#         circle = plt.Circle((x, y), config.robot_radius, color="b")
+#         plt.gcf().gca().add_artist(circle)
+#         out_x, out_y = (np.array([x, y]) +
+#                         np.array([np.cos(yaw), np.sin(yaw)]) * config.robot_radius)
+#         plt.plot([x, out_x], [y, out_y], "-k")
 
 def plot_robot(x, y, yaw, config):  # pragma: no cover
     if config.robot_type == RobotType.rectangle:
         outline = np.array([[-config.robot_length / 2, config.robot_length / 2,
-                             (config.robot_length / 2), -config.robot_length / 2,
+                             config.robot_length / 2, -config.robot_length / 2,
                              -config.robot_length / 2],
                             [config.robot_width / 2, config.robot_width / 2,
                              - config.robot_width / 2, -config.robot_width / 2,
@@ -241,16 +265,23 @@ def plot_robot(x, y, yaw, config):  # pragma: no cover
         outline[0, :] += x
         outline[1, :] += y
         plt.plot(np.array(outline[0, :]).flatten(),
-                 np.array(outline[1, :]).flatten(), "-k")
+                 np.array(outline[1, :]).flatten(), "-k", label='Robot')
+        plt.fill(outline[0, :], outline[1, :], color="skyblue", alpha=0.5)
     elif config.robot_type == RobotType.circle:
-        circle = plt.Circle((x, y), config.robot_radius, color="b")
+        # Dibuja el cuerpo del robot como un círculo semitransparente
+        circle = plt.Circle((x, y), config.robot_radius, color="blue", alpha=0.5, label="Robot")
         plt.gcf().gca().add_artist(circle)
-        out_x, out_y = (np.array([x, y]) +
-                        np.array([np.cos(yaw), np.sin(yaw)]) * config.robot_radius)
-        plt.plot([x, out_x], [y, out_y], "-k")
+        
+        # Dirección del robot
+        out_x = x + config.robot_radius * np.cos(yaw)
+        out_y = y + config.robot_radius * np.sin(yaw)
+        plt.arrow(x, y, out_x - x, out_y - y, head_width=0.1, head_length=0.2, fc='black', ec='black')
 
+    # Mejora general del gráfico
+    plt.axis("equal")
+    plt.grid(True)
 
-def main(gx=20, gy=15, robot_type=RobotType.circle, alfa = 0, k = 0.5, H_umbral = 0.3):
+def main(gx=20, gy=15, robot_type=RobotType.rectangle, alfa = 0, k = 0.5, H_umbral = 0.3):
     print(__file__ + " start!!")
     # initial state [x(m), y(m), teta(rad), v(m/s), omega(rad/s)]
     x = np.array([0.0, 0.0, math.pi / 8.0, 0.0, 0.0])
@@ -284,14 +315,15 @@ def main(gx=20, gy=15, robot_type=RobotType.circle, alfa = 0, k = 0.5, H_umbral 
         sheet.append([alfa, u[0], u[1], u_ac[0], u_ac[1]])
         #v = u_ac[0]
         #w = u_ac[1]
-        u2 = [v,w]
+        #u = [v,w]
         H = -(u_ac[0]*math.log(u_ac[0]) + u_ac[1]*math.log(u_ac[1]))  #Entropía, incertifdumbre de la red
+        
         alfa = 1 / (1+ math.exp(-k * (H_umbral - H)))  #k es la velocidad de la transición 
         
 
-        x = motion(x, u2, config.dt)  # simulate robot velocidades híbridas
+        x = motion(x, u, config.dt)  # simulate robot 
         trajectory = np.vstack((trajectory, x))  # store state history
-        x2 = motion(x, u, config.dt)  # simulate robot velocidades DWA
+        x2 = motion(x, u, config.dt)  # simulate robot 
 
         if show_animation:
             plt.cla()
@@ -337,14 +369,28 @@ def main(gx=20, gy=15, robot_type=RobotType.circle, alfa = 0, k = 0.5, H_umbral 
         plt.pause(0.0001)
         plt.show()
     
-
+    fig, ax = plt.subplots()
+    robot_dot, = ax.plot([], [], 'bo')
+    trajectory_line, = ax.plot([], [], 'b--')
+    
+    def init():
+        robot_dot.set_data([], [])
+        trajectory_line.set_data([], [])
+        return robot_dot, trajectory_line
+    
+    def animate(i):
+        robot_dot.set_data(trajectory[i,0], trajectory[i,1])
+        trajectory_line.set_data(trajectory[:i+1,0], trajectory[:i+1,1])
+        return robot_dot, trajectory_line
+    
+    ani = animation.FuncAnimation(fig, animate, frames=len(trajectory), init_func=init, blit=True, interval=100)
+    plt.show()
+    ani.save("robot_path.gif", writer="imagemagick")
 
 if __name__ == '__main__':
     main(robot_type=RobotType.rectangle)
     #main(robot_type=RobotType.circle)
     
-
-
 
 
 
